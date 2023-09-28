@@ -108,7 +108,18 @@ documentation](https://golang.org/doc/code.html).
 A Docker image is available on [Docker
 Hub](https://hub.docker.com/r/xoste49/echoip), which can be downloaded with:
 
-`docker pull xoste49/echoip`
+`docker pull xoste49/echoip:latest`
+
+## Docker Run
+
+`docker run -d --restart unless-stopped -p 8080:8080 xoste49/echoip:latest -c city.mmdb -f country.mmdb -a asn.mmdb`
+
+## Run without Docker
+
+```shell
+make geoip-download
+make run
+```
 
 ## [GeoIP](https://www.maxmind.com/en/geoip2-databases)/[GeoLite](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data?) Database (MaxMind)
 To utilise MaxMind [GeoIP](https://www.maxmind.com/en/geoip2-databases)/[GeoLite](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data?) database to enhance the information provided to end users, you can download the relevant **binary** databases (`.mmdb` format) directly from MaxMind using the above links.
