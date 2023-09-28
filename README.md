@@ -112,7 +112,7 @@ Hub](https://hub.docker.com/r/xoste49/echoip), which can be downloaded with:
 
 ## Docker Run
 
-`docker run -d --restart unless-stopped -p 8080:8080 xoste49/echoip:latest -c city.mmdb -f country.mmdb -a asn.mmdb`
+`docker run -d --name echoip --restart unless-stopped -p 8080:8080 xoste49/echoip:latest -c city.mmdb -f country.mmdb -a asn.mmdb`
 
 ## Run without Docker
 
