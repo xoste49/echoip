@@ -40,7 +40,7 @@ geoip-download: $(databases)
 
 # Create an environment to build multiarch containers (https://github.com/docker/buildx/)
 docker-multiarch-builder:
-	DOCKER_BUILDKIT=1 $(DOCKER) build -o . git://github.com/docker/buildx
+	DOCKER_BUILDKIT=1 $(DOCKER) build -o . https://github.com/docker/buildx.git
 	mkdir -p ~/.docker/cli-plugins
 	mv buildx ~/.docker/cli-plugins/docker-buildx
 	$(DOCKER) buildx create --name multiarch-builder --node multiarch-builder --driver docker-container --use
@@ -50,7 +50,7 @@ docker-build:
 	$(DOCKER) build -t $(DOCKER_IMAGE) .
 
 docker-login:
-	@echo "$(DOCKER_PASSWORD)" | $(DOCKER) login -u "$(DOCKER_USERNAME)" --password-stdin
+	$(DOCKER) login --username "$(DOCKER_USERNAME)" --password "$(DOCKER_PASSWORD)"
 
 docker-test:
 	$(eval CONTAINER=$(shell $(DOCKER) run --rm --detach --publish-all $(DOCKER_IMAGE)))
