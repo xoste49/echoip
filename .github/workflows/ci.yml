@@ -12,6 +12,7 @@ jobs:
     env:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      GEOIP_LICENSE_KEY: ${{ secrets.GEOIP_LICENSE_KEY }}
     steps:
       - uses: actions/checkout@v2
       - name: install go
@@ -27,4 +28,6 @@ jobs:
           sudo service docker restart
       - name: publish multi-arch docker image
         if: ${{ github.ref == 'refs/heads/master' }}
-        run: make docker-pushx
+        run: |
+          make geoip-download
+          make docker-pushx
