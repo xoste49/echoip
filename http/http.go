@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"path/filepath"
 	"strings"
@@ -186,7 +186,7 @@ func (s *Server) newPortResponse(r *http.Request) (PortResponse, error) {
 	}, nil
 }
 
-func (s *Server) CLIHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLIHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	ip, err := ipFromRequest(s.IPHeaders, r, true)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -195,7 +195,7 @@ func (s *Server) CLIHandler(w http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-func (s *Server) CLICountryHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLICountryHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -204,7 +204,7 @@ func (s *Server) CLICountryHandler(w http.ResponseWriter, r *http.Request) *appE
 	return nil
 }
 
-func (s *Server) CLICountryISOHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLICountryISOHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -213,7 +213,7 @@ func (s *Server) CLICountryISOHandler(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
-func (s *Server) CLICityHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLICityHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -222,7 +222,7 @@ func (s *Server) CLICityHandler(w http.ResponseWriter, r *http.Request) *appErro
 	return nil
 }
 
-func (s *Server) CLICoordinatesHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLICoordinatesHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -231,7 +231,7 @@ func (s *Server) CLICoordinatesHandler(w http.ResponseWriter, r *http.Request) *
 	return nil
 }
 
-func (s *Server) CLIASNHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLIASNHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -240,7 +240,7 @@ func (s *Server) CLIASNHandler(w http.ResponseWriter, r *http.Request) *appError
 	return nil
 }
 
-func (s *Server) CLIASNOrgHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) CLIASNOrgHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -249,7 +249,7 @@ func (s *Server) CLIASNOrgHandler(w http.ResponseWriter, r *http.Request) *appEr
 	return nil
 }
 
-func (s *Server) JSONHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) JSONHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -263,13 +263,13 @@ func (s *Server) JSONHandler(w http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-func (s *Server) HealthHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) HealthHandler(w http.ResponseWriter, _ *http.Request) *AppError {
 	w.Header().Set("Content-Type", jsonMediaType)
 	w.Write([]byte(`{"status":"OK"}`))
 	return nil
 }
 
-func (s *Server) PortHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) PortHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newPortResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
@@ -283,8 +283,8 @@ func (s *Server) PortHandler(w http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-func (s *Server) cacheResizeHandler(w http.ResponseWriter, r *http.Request) *appError {
-	body, err := ioutil.ReadAll(r.Body)
+func (s *Server) cacheResizeHandler(w http.ResponseWriter, r *http.Request) *AppError {
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error()).AsJSON()
 	}
@@ -307,7 +307,7 @@ func (s *Server) cacheResizeHandler(w http.ResponseWriter, r *http.Request) *app
 	return nil
 }
 
-func (s *Server) cacheHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) cacheHandler(w http.ResponseWriter, _ *http.Request) *AppError {
 	cacheStats := s.cache.Stats()
 	var data = struct {
 		Size      int    `json:"size"`
@@ -327,7 +327,7 @@ func (s *Server) cacheHandler(w http.ResponseWriter, r *http.Request) *appError 
 	return nil
 }
 
-func (s *Server) DefaultHandler(w http.ResponseWriter, r *http.Request) *appError {
+func (s *Server) DefaultHandler(w http.ResponseWriter, r *http.Request) *AppError {
 	response, err := s.newResponse(r)
 	if err != nil {
 		return badRequest(err).WithMessage(err.Error())
@@ -336,7 +336,7 @@ func (s *Server) DefaultHandler(w http.ResponseWriter, r *http.Request) *appErro
 	if err != nil {
 		return internalServerError(err)
 	}
-	json, err := json.MarshalIndent(response, "", "  ")
+	_json, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
 		return internalServerError(err)
 	}
@@ -358,7 +358,7 @@ func (s *Server) DefaultHandler(w http.ResponseWriter, r *http.Request) *appErro
 		response.Latitude - 0.05,
 		response.Longitude - 0.05,
 		response.Longitude + 0.05,
-		string(json),
+		string(_json),
 		s.LookupPort != nil,
 		s.Sponsor,
 	}
@@ -368,7 +368,7 @@ func (s *Server) DefaultHandler(w http.ResponseWriter, r *http.Request) *appErro
 	return nil
 }
 
-func NotFoundHandler(w http.ResponseWriter, r *http.Request) *appError {
+func NotFoundHandler(r *http.Request) *AppError {
 	err := notFound(nil).WithMessage("404 page not found")
 	if r.Header.Get("accept") == jsonMediaType {
 		err = err.AsJSON()
@@ -385,10 +385,10 @@ func cliMatcher(r *http.Request) bool {
 	return false
 }
 
-type appHandler func(http.ResponseWriter, *http.Request) *appError
+type appHandler func(http.ResponseWriter, *http.Request) *AppError
 
 func wrapHandlerFunc(f http.HandlerFunc) appHandler {
-	return func(w http.ResponseWriter, r *http.Request) *appError {
+	return func(w http.ResponseWriter, r *http.Request) *AppError {
 		f.ServeHTTP(w, r)
 		return nil
 	}
