@@ -1,9 +1,5 @@
 DOCKER ?= docker
 DOCKER_IMAGE ?= xoste49/echoip
-OS := $(shell uname)
-ifeq ($(OS),Linux)
-	TAR_OPTS := --wildcards
-endif
 XGOARCH := amd64
 XGOOS := linux
 XBIN := $(XGOOS)_$(XGOARCH)/echoip
@@ -25,22 +21,11 @@ fmt:
 install:
 	go install ./...
 
-databases := GeoLite2-City GeoLite2-Country GeoLite2-ASN
-
-$(databases):
-ifndef GEOIP_LICENSE_KEY
-	$(error GEOIP_LICENSE_KEY and MAXMIND_ACCOUNT_ID must be set. See https://dev.maxmind.com/geoip/updating-databases/#directly-downloading-databases
-endif
-ifndef MAXMIND_ACCOUNT_ID
-	$(error GEOIP_LICENSE_KEY and MAXMIND_ACCOUNT_ID must be set. See https://dev.maxmind.com/geoip/updating-databases/#directly-downloading-databases
-endif
+geoip-download:
 	mkdir -p data
-	@curl -fsSL -m 30 -u $(MAXMIND_ACCOUNT_ID):$(GEOIP_LICENSE_KEY) "https://download.maxmind.com/geoip/databases/$@/download?suffix=tar.gz" | tar $(TAR_OPTS) --strip-components=1 -C $(CURDIR)/data -xzf - '*.mmdb'
-	test ! -f data/GeoLite2-City.mmdb || mv data/GeoLite2-City.mmdb data/city.mmdb
-	test ! -f data/GeoLite2-Country.mmdb || mv data/GeoLite2-Country.mmdb data/country.mmdb
-	test ! -f data/GeoLite2-ASN.mmdb || mv data/GeoLite2-ASN.mmdb data/asn.mmdb
-
-geoip-download: $(databases)
+	curl -fsSL -m 60 -o data/city.mmdb "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb"
+	curl -fsSL -m 60 -o data/country.mmdb "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb"
+	curl -fsSL -m 60 -o data/asn.mmdb "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb"
 
 docker-build:
 	$(DOCKER) build -t $(DOCKER_IMAGE) .

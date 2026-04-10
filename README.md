@@ -128,12 +128,9 @@ IP addresses, such as registered country/city and ASN details.
 
 The databases can be downloaded with:
 
-`GEOIP_LICENSE_KEY=<key> MAXMIND_ACCOUNT_ID=<account-id> make geoip-download`
+`make geoip-download`
 
-Downloading requires a MaxMind account and license key. See the following links for more information:
-
-- https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
-- https://dev.maxmind.com/geoip/updating-databases/#directly-downloading-databases
+The databases are downloaded from the https://github.com/P3TERX/GeoLite.mmdb repository.
 
 ### Usage
 

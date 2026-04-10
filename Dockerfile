@@ -15,6 +15,4 @@ COPY --from=build /go/bin/echoip /opt/echoip/
 COPY html /opt/echoip/html
 
 WORKDIR /opt/echoip
-COPY data/city.mmdb data/country.mmdb data/asn.mmdb ./
-
 ENTRYPOINT ["/opt/echoip/echoip"]
