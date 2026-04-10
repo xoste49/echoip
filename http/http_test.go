@@ -1,7 +1,7 @@
 package http
 
 import (
-	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -57,7 +57,7 @@ func httpGet(url string, acceptMediaType string, userAgent string) (string, int,
 		return "", 0, err
 	}
 	defer res.Body.Close()
-	data, err := io.ReadAll(res.Body)
+	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return "", 0, err
 	}
@@ -74,7 +74,7 @@ func httpPost(url, body string) (*http.Response, string, error) {
 		return nil, "", err
 	}
 	defer res.Body.Close()
-	data, err := io.ReadAll(res.Body)
+	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, "", err
 	}
@@ -82,7 +82,7 @@ func httpPost(url, body string) (*http.Response, string, error) {
 }
 
 func TestCLIHandlers(t *testing.T) {
-	log.SetOutput(io.Discard)
+	log.SetOutput(ioutil.Discard)
 	s := httptest.NewServer(testServer().Handler())
 
 	var tests = []struct {
@@ -119,7 +119,7 @@ func TestCLIHandlers(t *testing.T) {
 }
 
 func TestDisabledHandlers(t *testing.T) {
-	log.SetOutput(io.Discard)
+	log.SetOutput(ioutil.Discard)
 	server := testServer()
 	server.LookupPort = nil
 	server.LookupAddr = nil
@@ -153,7 +153,7 @@ func TestDisabledHandlers(t *testing.T) {
 }
 
 func TestJSONHandlers(t *testing.T) {
-	log.SetOutput(io.Discard)
+	log.SetOutput(ioutil.Discard)
 	s := httptest.NewServer(testServer().Handler())
 
 	var tests = []struct {
@@ -187,7 +187,7 @@ func TestJSONHandlers(t *testing.T) {
 }
 
 func TestCacheHandler(t *testing.T) {
-	log.SetOutput(io.Discard)
+	log.SetOutput(ioutil.Discard)
 	srv := testServer()
 	srv.profile = true
 	s := httptest.NewServer(srv.Handler())
@@ -202,7 +202,7 @@ func TestCacheHandler(t *testing.T) {
 }
 
 func TestCacheResizeHandler(t *testing.T) {
-	log.SetOutput(io.Discard)
+	log.SetOutput(ioutil.Discard)
 	srv := testServer()
 	srv.profile = true
 	s := httptest.NewServer(srv.Handler())

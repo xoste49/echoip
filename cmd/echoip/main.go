@@ -15,7 +15,7 @@ import (
 type multiValueFlag []string
 
 func (f *multiValueFlag) String() string {
-	return strings.Join(*f, ", ")
+	return strings.Join([]string(*f), ", ")
 }
 
 func (f *multiValueFlag) Set(v string) error {
