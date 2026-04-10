@@ -17,9 +17,16 @@ func lookupAddr(net.IP) (string, error) { return "localhost", nil }
 func lookupPort(net.IP, uint64) error   { return nil }
 
 type testDb struct{}
+type ipTestCase struct {
+	remoteAddr     string
+	headerKey      string
+	headerValue    string
+	trustedHeaders []string
+	out            string
+}
 
 func (t *testDb) Country(net.IP) (geo.Country, error) {
-	return geo.Country{Name: "Elbonia", ISO: "EB", IsEU: new(bool)}, nil
+	return geo.Country{Name: "Elbonia", ISO: "EB"}, nil
 }
 
 func (t *testDb) City(net.IP) (geo.City, error) {
@@ -128,7 +135,7 @@ func TestDisabledHandlers(t *testing.T) {
 		{s.URL + "/country", "404 page not found", 404},
 		{s.URL + "/country-iso", "404 page not found", 404},
 		{s.URL + "/city", "404 page not found", 404},
-		{s.URL + "/json", "{\n  \"ip\": \"127.0.0.1\",\n  \"ip_decimal\": 2130706433\n}", 200},
+		{s.URL + "/json", "{\n  \"ip\": \"127.0.0.1\",\n  \"ip_decimal\": 2130706433,\n  \"country_eu\": false\n}", 200},
 	}
 
 	for _, tt := range tests {
@@ -209,14 +216,8 @@ func TestCacheResizeHandler(t *testing.T) {
 	}
 }
 
-func TestIPFromRequest(t *testing.T) {
-	var tests = []struct {
-		remoteAddr     string
-		headerKey      string
-		headerValue    string
-		trustedHeaders []string
-		out            string
-	}{
+func TestIPv4FromRequest(t *testing.T) {
+	var tests = []ipTestCase{
 		{"127.0.0.1:9999", "", "", nil, "127.0.0.1"},                                                                // No header given
 		{"127.0.0.1:9999", "X-Real-IP", "1.3.3.7", nil, "127.0.0.1"},                                                // Trusted header is empty
 		{"127.0.0.1:9999", "X-Real-IP", "1.3.3.7", []string{"X-Foo-Bar"}, "127.0.0.1"},                              // Trusted header does not match
@@ -227,7 +228,40 @@ func TestIPFromRequest(t *testing.T) {
 		{"127.0.0.1:9999", "X-Forwarded-For", "", []string{"X-Forwarded-For"}, "127.0.0.1"},                         // Empty header
 		{"127.0.0.1:9999?ip=1.2.3.4", "", "", nil, "1.2.3.4"},                                                       // passed in "ip" parameter
 		{"127.0.0.1:9999?ip=1.2.3.4", "X-Forwarded-For", "1.3.3.7,4.2.4.2", []string{"X-Forwarded-For"}, "1.2.3.4"}, // ip parameter wins over X-Forwarded-For with multiple entries
+
+		{"127.0.0.1:9999", "X-Real-IP", "1.3.3.7:1337", []string{"X-Real-IP", "X-Forwarded-For"}, "1.3.3.7"},                       // Trusted header matches (with port)
+		{"127.0.0.1:9999", "X-Forwarded-For", "1.3.3.7:1337", []string{"X-Real-IP", "X-Forwarded-For"}, "1.3.3.7"},                 // Second trusted header matches (with port)
+		{"127.0.0.1:9999", "X-Forwarded-For", "1.3.3.7:1337,4.2.4.2:4242", []string{"X-Forwarded-For"}, "1.3.3.7"},                 // X-Forwarded-For with multiple entries (commas separator, with port)
+		{"127.0.0.1:9999", "X-Forwarded-For", "1.3.3.7:1337, 4.2.4.2:4242", []string{"X-Forwarded-For"}, "1.3.3.7"},                // X-Forwarded-For with multiple entries (space+comma separator, with port)
+		{"127.0.0.1:9999?ip=1.2.3.4:1234", "", "", nil, "1.2.3.4"},                                                                 // passed in "ip" parameter (with port)
+		{"127.0.0.1:9999?ip=1.2.3.4:1234", "X-Forwarded-For", "1.3.3.7:1337,4.2.4.2:4242", []string{"X-Forwarded-For"}, "1.2.3.4"}, // ip parameter wins over X-Forwarded-For with multiple entries (with port)
 	}
+	testIpFromRequest(t, tests)
+}
+func TestIPv6FromRequest(t *testing.T) {
+	var tests = []ipTestCase{
+		{"[::1]:9999", "", "", nil, "::1"},                                                                                                  // No header given
+		{"[::1]:9999", "X-Real-IP", "::ffff:103:307", nil, "::1"},                                                                           // Trusted header is empty
+		{"[::1]:9999", "X-Real-IP", "::ffff:103:307", []string{"X-Foo-Bar"}, "::1"},                                                         // Trusted header does not match
+		{"[::1]:9999", "X-Real-IP", "::ffff:103:307", []string{"X-Real-IP", "X-Forwarded-For"}, "::ffff:103:307"},                           // Trusted header matches
+		{"[::1]:9999", "X-Forwarded-For", "::ffff:103:307", []string{"X-Real-IP", "X-Forwarded-For"}, "::ffff:103:307"},                     // Second trusted header matches
+		{"[::1]:9999", "X-Forwarded-For", "::ffff:103:307,::ffff:402:402", []string{"X-Forwarded-For"}, "::ffff:103:307"},                   // X-Forwarded-For with multiple entries (commas separator)
+		{"[::1]:9999", "X-Forwarded-For", "::ffff:103:307, ::ffff:402:402", []string{"X-Forwarded-For"}, "::ffff:103:307"},                  // X-Forwarded-For with multiple entries (space+comma separator)
+		{"[::1]:9999", "X-Forwarded-For", "", []string{"X-Forwarded-For"}, "::1"},                                                           // Empty header
+		{"[::1]:9999?ip=::ffff:102:304", "", "", nil, "::ffff:102:304"},                                                                     // passed in "ip" parameter
+		{"[::1]:9999?ip=::ffff:102:304", "X-Forwarded-For", "::ffff:103:307,::ffff:402:402", []string{"X-Forwarded-For"}, "::ffff:102:304"}, // ip parameter wins over X-Forwarded-For with multiple entries
+
+		{"[::1]:9999", "X-Real-IP", "[::ffff:103:307]:1337", []string{"X-Real-IP", "X-Forwarded-For"}, "::ffff:103:307"},                                         // Trusted header matches (with port)
+		{"[::1]:9999", "X-Forwarded-For", "[::ffff:103:307]:1337", []string{"X-Real-IP", "X-Forwarded-For"}, "::ffff:103:307"},                                   // Second trusted header matches (with port)
+		{"[::1]:9999", "X-Forwarded-For", "[::ffff:103:307]:1337,[::ffff:402:402]:4242", []string{"X-Forwarded-For"}, "::ffff:103:307"},                          // X-Forwarded-For with multiple entries (commas separator, with port)
+		{"[::1]:9999", "X-Forwarded-For", "[::ffff:103:307]:1337, [::ffff:402:402]:4242", []string{"X-Forwarded-For"}, "::ffff:103:307"},                         // X-Forwarded-For with multiple entries (space+comma separator, with port)
+		{"[::1]:9999?ip=[::ffff:102:304]:1234", "", "", nil, "::ffff:102:304"},                                                                                   // passed in "ip" parameter (with port)
+		{"[::1]:9999?ip=[::ffff:102:304]:1234", "X-Forwarded-For", "[::ffff:103:307]:1337,[::ffff:402:402]:4242", []string{"X-Forwarded-For"}, "::ffff:102:304"}, // ip parameter wins over X-Forwarded-For with multiple entries (with port)
+	}
+	testIpFromRequest(t, tests)
+}
+
+func testIpFromRequest(t *testing.T, tests []ipTestCase) {
 	for _, tt := range tests {
 		u, err := url.Parse("http://" + tt.remoteAddr)
 		if err != nil {

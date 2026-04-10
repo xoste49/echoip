@@ -8,7 +8,7 @@ XGOARCH := amd64
 XGOOS := linux
 XBIN := $(XGOOS)_$(XGOARCH)/echoip
 
-all: lint test install
+all: checkfmt vet test install
 
 test:
 	go test ./...
@@ -16,10 +16,11 @@ test:
 vet:
 	go vet ./...
 
-check-fmt:
-	bash -c "diff --line-format='%L' <(echo -n) <(gofmt -d -s .)"
+checkfmt:
+	@sh -c "test -z $$(gofmt -l .)" || { echo "one or more files need to be formatted: try make fmt to fix this automatically"; exit 1; }
 
-lint: check-fmt vet
+fmt:
+	gofmt -w .
 
 install:
 	go install ./...
@@ -28,23 +29,18 @@ databases := GeoLite2-City GeoLite2-Country GeoLite2-ASN
 
 $(databases):
 ifndef GEOIP_LICENSE_KEY
-	$(error GEOIP_LICENSE_KEY must be set. Please see https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-geolite2-databases/)
+	$(error GEOIP_LICENSE_KEY and MAXMIND_ACCOUNT_ID must be set. See https://dev.maxmind.com/geoip/updating-databases/#directly-downloading-databases
+endif
+ifndef MAXMIND_ACCOUNT_ID
+	$(error GEOIP_LICENSE_KEY and MAXMIND_ACCOUNT_ID must be set. See https://dev.maxmind.com/geoip/updating-databases/#directly-downloading-databases
 endif
 	mkdir -p data
-	@curl -fsSL -m 30 "https://download.maxmind.com/app/geoip_download?edition_id=$@&license_key=$(GEOIP_LICENSE_KEY)&suffix=tar.gz" | tar $(TAR_OPTS) --strip-components=1 -C $(CURDIR)/data -xzf - '*.mmdb'
+	@curl -fsSL -m 30 -u $(MAXMIND_ACCOUNT_ID):$(GEOIP_LICENSE_KEY) "https://download.maxmind.com/geoip/databases/$@/download?suffix=tar.gz" | tar $(TAR_OPTS) --strip-components=1 -C $(CURDIR)/data -xzf - '*.mmdb'
 	test ! -f data/GeoLite2-City.mmdb || mv data/GeoLite2-City.mmdb data/city.mmdb
 	test ! -f data/GeoLite2-Country.mmdb || mv data/GeoLite2-Country.mmdb data/country.mmdb
 	test ! -f data/GeoLite2-ASN.mmdb || mv data/GeoLite2-ASN.mmdb data/asn.mmdb
 
 geoip-download: $(databases)
-
-# Create an environment to build multiarch containers (https://github.com/docker/buildx/)
-docker-multiarch-builder:
-	DOCKER_BUILDKIT=1 $(DOCKER) build -o . https://github.com/docker/buildx.git
-	mkdir -p ~/.docker/cli-plugins
-	mv buildx ~/.docker/cli-plugins/docker-buildx
-	$(DOCKER) buildx create --name multiarch-builder --node multiarch-builder --driver docker-container --use
-	$(DOCKER) run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 docker-build:
 	$(DOCKER) build -t $(DOCKER_IMAGE) .
@@ -59,9 +55,6 @@ docker-test:
 
 docker-push: docker-test docker-login
 	$(DOCKER) push $(DOCKER_IMAGE)
-
-docker-pushx: docker-multiarch-builder docker-test docker-login
-	$(DOCKER) buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t $(DOCKER_IMAGE) --push .
 
 xinstall:
 	env GOOS=$(XGOOS) GOARCH=$(XGOARCH) go install ./...
