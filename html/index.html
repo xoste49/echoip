@@ -262,6 +262,22 @@
               <td>Check if given port is reachable. See <a href="#port-response">port response</a>.</td>
             </tr>
             {{ end }}
+            <tr>
+              <td><code>curl -o /dev/null {{ .Host }}/10mb</code></td>
+              <td>Download 10 MB (speed test)</td>
+            </tr>
+            <tr>
+              <td><code>curl -o /dev/null {{ .Host }}/100mb</code></td>
+              <td>Download 100 MB (speed test)</td>
+            </tr>
+            <tr>
+              <td><code>curl -o /dev/null {{ .Host }}/500mb</code></td>
+              <td>Download 500 MB (speed test)</td>
+            </tr>
+            <tr>
+              <td><code>curl -o /dev/null {{ .Host }}/1gb</code></td>
+              <td>Download 1 GB (speed test)</td>
+            </tr>
           </tbody>
         </table>
         <h3 id="response">Response</h3>

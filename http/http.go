@@ -479,6 +479,12 @@ func (s *Server) Handler() http.Handler {
 		r.Route("GET", "/", s.DefaultHandler)
 	}
 
+	// Speed test downloads
+	r.Route("GET", "/10mb", s.SpeedTestHandler)
+	r.Route("GET", "/100mb", s.SpeedTestHandler)
+	r.Route("GET", "/500mb", s.SpeedTestHandler)
+	r.Route("GET", "/1gb", s.SpeedTestHandler)
+
 	// Port testing
 	if s.LookupPort != nil {
 		r.RoutePrefix("GET", "/port/", s.PortHandler)
@@ -496,6 +502,40 @@ func (s *Server) Handler() http.Handler {
 	}
 
 	return r.Handler()
+}
+
+func (s *Server) SpeedTestHandler(w http.ResponseWriter, r *http.Request) *appError {
+	sizeStr := strings.TrimPrefix(r.URL.Path, "/")
+	var size int64
+	switch sizeStr {
+	case "10mb":
+		size = 10 * 1024 * 1024
+	case "100mb":
+		size = 100 * 1024 * 1024
+	case "500mb":
+		size = 500 * 1024 * 1024
+	case "1gb":
+		size = 1024 * 1024 * 1024
+	default:
+		return badRequest(fmt.Errorf("unknown size: %s", sizeStr)).WithMessage("unknown size")
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="random-%s.bin"`, sizeStr))
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	buf := make([]byte, 32*1024)
+	var written int64
+	for written < size {
+		n := int64(len(buf))
+		if size-written < n {
+			n = size - written
+		}
+		_, err := w.Write(buf[:n])
+		if err != nil {
+			return nil
+		}
+		written += n
+	}
+	return nil
 }
 
 func (s *Server) ListenAndServe(addr string) error {
