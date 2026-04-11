@@ -146,8 +146,25 @@
                   <td>{{ .Hostname }}</td>
                 </tr>
                 {{ end }}
+                <tr>
+                  <th>Is proxy</th>
+                  <td>{{ .IsProxy }}</td>
+                </tr>
               </tbody>
             </table>
+            {{ if .Headers }}
+            <h2>Request headers</h2>
+            <table class="info-table">
+              <tbody>
+                {{ range $key, $value := .Headers }}
+                <tr>
+                  <th>{{ $key }}</th>
+                  <td>{{ $value }}</td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+            {{ end }}
           </div>
           <div>
             <h2>Location</h2>

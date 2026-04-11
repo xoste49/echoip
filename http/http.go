@@ -55,6 +55,8 @@ type Response struct {
 	ASNOrg     string               `json:"asn_org,omitempty"`
 	Hostname   string               `json:"hostname,omitempty"`
 	UserAgent  *useragent.UserAgent `json:"user_agent,omitempty"`
+	IsProxy    bool                 `json:"is_proxy"`
+	Headers    map[string]string    `json:"headers,omitempty"`
 }
 
 type PortResponse struct {
@@ -128,6 +130,14 @@ func userAgentFromRequest(r *http.Request) *useragent.UserAgent {
 	return userAgent
 }
 
+func headersFromRequest(r *http.Request) map[string]string {
+	headers := make(map[string]string)
+	for key, values := range r.Header {
+		headers[key] = strings.Join(values, ", ")
+	}
+	return headers
+}
+
 func (s *Server) newResponse(r *http.Request) (Response, error) {
 	ip, err := ipFromRequest(s.IPHeaders, r, true)
 	if err != nil {
@@ -135,8 +145,10 @@ func (s *Server) newResponse(r *http.Request) (Response, error) {
 	}
 	response, ok := s.cache.Get(ip)
 	if ok {
-		// Do not cache user agent
+		// Do not cache user agent or headers
 		response.UserAgent = userAgentFromRequest(r)
+		response.Headers = headersFromRequest(r)
+		response.IsProxy = r.Header.Get("X-Forwarded-For") != ""
 		return response, nil
 	}
 	ipDecimal := iputil.ToDecimal(ip)
@@ -171,6 +183,8 @@ func (s *Server) newResponse(r *http.Request) (Response, error) {
 	}
 	s.cache.Set(ip, response)
 	response.UserAgent = userAgentFromRequest(r)
+	response.Headers = headersFromRequest(r)
+	response.IsProxy = r.Header.Get("X-Forwarded-For") != ""
 	return response, nil
 }
 
