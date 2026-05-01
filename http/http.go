@@ -482,6 +482,9 @@ func (s *Server) Handler() http.Handler {
 		r.Route("GET", "/", s.DefaultHandler)
 	}
 
+	// Connectivity check (returns 204 No Content)
+	r.Route("GET", "/generate_204", s.Generate204Handler)
+
 	// Speed test downloads
 	r.RoutePrefix("GET", "/", s.SpeedTestHandler).MatcherFunc(func(req *http.Request) bool {
 		return speedTestRe.MatchString(req.URL.Path)
@@ -504,6 +507,11 @@ func (s *Server) Handler() http.Handler {
 	}
 
 	return r.Handler()
+}
+
+func (s *Server) Generate204Handler(w http.ResponseWriter, r *http.Request) *appError {
+	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 const maxSpeedTestBytes = 10 * 1024 * 1024 * 1024 // 10 GB

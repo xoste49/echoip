@@ -284,6 +284,22 @@
             </tr>
           </tbody>
         </table>
+        <h3>Connectivity check</h3>
+        <p>Returns <code>204 No Content</code> with an empty body. Useful for checking internet connectivity, similar to <code>google.com/generate_204</code>.</p>
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>curl -o /dev/null -w "%{http_code}" {{ .Host }}/generate_204</code></td>
+              <td>Returns <code>204 No Content</code></td>
+            </tr>
+          </tbody>
+        </table>
         <h3 id="response">Response</h3>
         <pre class="json-block"><code>{{ .JSON }}</code></pre>
         <h3 id="port-response">Port response</h3>

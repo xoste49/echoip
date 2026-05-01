@@ -71,6 +71,24 @@ $ curl ifconfig.co/port/80
 }
 ```
 
+Speed test:
+
+```
+$ curl -o /dev/null ifconfig.co/10mb
+$ curl -o /dev/null ifconfig.co/100mb
+$ curl -o /dev/null ifconfig.co/500mb
+$ curl -o /dev/null ifconfig.co/1gb
+```
+
+Any size is supported — use a number followed by `mb` or `gb` (e.g. `50mb`, `150mb`, `2gb`). Maximum is 10 GB.
+
+Connectivity check (returns `204 No Content`, similar to `google.com/generate_204`):
+
+```
+$ curl -o /dev/null -w "%{http_code}" ifconfig.co/generate_204
+204
+```
+
 Pass the appropriate flag (usually `-4` and `-6`) to your client to switch
 between IPv4 and IPv6 lookup.
 
@@ -84,6 +102,8 @@ between IPv4 and IPv6 lookup.
 * JSON output
 * ASN, country and city lookup, using data from MaxMind
 * Port testing
+* Speed test downloads (any size in MB or GB, up to 10 GB)
+* Connectivity check endpoint (`/generate_204`)
 * All endpoints (except `/port`) can return information about a custom IP address specified via `?ip=` query parameter
 * Open source under the [BSD 3-Clause license](https://opensource.org/licenses/BSD-3-Clause)
 
