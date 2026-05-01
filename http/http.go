@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"net/http/pprof"
@@ -20,6 +21,8 @@ import (
 	"net/http"
 	"strconv"
 )
+
+var speedTestRe = regexp.MustCompile(`^/(\d+)(mb|gb)$`)
 
 const (
 	jsonMediaType = "application/json"
@@ -480,10 +483,9 @@ func (s *Server) Handler() http.Handler {
 	}
 
 	// Speed test downloads
-	r.Route("GET", "/10mb", s.SpeedTestHandler)
-	r.Route("GET", "/100mb", s.SpeedTestHandler)
-	r.Route("GET", "/500mb", s.SpeedTestHandler)
-	r.Route("GET", "/1gb", s.SpeedTestHandler)
+	r.RoutePrefix("GET", "/", s.SpeedTestHandler).MatcherFunc(func(req *http.Request) bool {
+		return speedTestRe.MatchString(req.URL.Path)
+	})
 
 	// Port testing
 	if s.LookupPort != nil {
@@ -504,23 +506,31 @@ func (s *Server) Handler() http.Handler {
 	return r.Handler()
 }
 
+const maxSpeedTestBytes = 10 * 1024 * 1024 * 1024 // 10 GB
+
 func (s *Server) SpeedTestHandler(w http.ResponseWriter, r *http.Request) *appError {
-	sizeStr := strings.TrimPrefix(r.URL.Path, "/")
-	var size int64
-	switch sizeStr {
-	case "10mb":
-		size = 10 * 1024 * 1024
-	case "100mb":
-		size = 100 * 1024 * 1024
-	case "500mb":
-		size = 500 * 1024 * 1024
-	case "1gb":
-		size = 1024 * 1024 * 1024
-	default:
-		return badRequest(fmt.Errorf("unknown size: %s", sizeStr)).WithMessage("unknown size")
+	matches := speedTestRe.FindStringSubmatch(r.URL.Path)
+	if matches == nil {
+		return badRequest(fmt.Errorf("invalid size: %s", r.URL.Path)).WithMessage("invalid size")
 	}
+	n, err := strconv.ParseInt(matches[1], 10, 64)
+	if err != nil || n <= 0 {
+		return badRequest(fmt.Errorf("invalid size: %s", r.URL.Path)).WithMessage("invalid size")
+	}
+	var multiplier int64
+	switch matches[2] {
+	case "mb":
+		multiplier = 1024 * 1024
+	case "gb":
+		multiplier = 1024 * 1024 * 1024
+	}
+	size := n * multiplier
+	if size > maxSpeedTestBytes {
+		return badRequest(fmt.Errorf("size too large: %s", r.URL.Path)).WithMessage("size too large")
+	}
+	sizeLabel := matches[1] + matches[2]
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="random-%s.bin"`, sizeStr))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="random-%s.bin"`, sizeLabel))
 	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	buf := make([]byte, 32*1024)
 	var written int64

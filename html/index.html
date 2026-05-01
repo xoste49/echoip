@@ -278,6 +278,10 @@
               <td><code>curl -o /dev/null {{ .Host }}/1gb</code></td>
               <td>Download 1 GB (speed test)</td>
             </tr>
+            <tr>
+              <td><code>curl -o /dev/null {{ .Host }}/&lt;SIZE&gt;</code></td>
+              <td>Download any size for a speed test. <code>&lt;SIZE&gt;</code> is a number followed by <code>mb</code> or <code>gb</code>, e.g. <code>50mb</code>, <code>150mb</code>, <code>2gb</code>. Maximum is 10 GB.</td>
+            </tr>
           </tbody>
         </table>
         <h3 id="response">Response</h3>
