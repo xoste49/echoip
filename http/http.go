@@ -557,9 +557,27 @@ func (s *Server) SpeedTestHandler(w http.ResponseWriter, r *http.Request) *appEr
 }
 
 func (s *Server) ListenAndServe(addr string) error {
-	return http.ListenAndServe(addr, s.Handler())
+	return http.ListenAndServe(addr, loggingMiddleware(s.Handler()))
 }
 
 func formatCoordinate(c float64) string {
 	return strconv.FormatFloat(c, 'f', 6, 64)
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		log.Printf("%s %s %d %s", r.Method, r.URL.Path, rec.status, r.RemoteAddr)
+	})
 }
