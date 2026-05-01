@@ -139,6 +139,15 @@ make geoip-download
 docker run -d --name echoip --restart unless-stopped -p 8080:8080 -v $(pwd)/data:/opt/echoip/data xoste49/echoip:latest -c data/city.mmdb -f data/country.mmdb -a data/asn.mmdb
 ```
 
+## Docker Update
+
+```shell
+docker pull xoste49/echoip:latest
+docker stop echoip
+docker rm echoip
+docker run -d --name echoip --restart unless-stopped -p 8080:8080 -v $(pwd)/data:/opt/echoip/data xoste49/echoip:latest -c data/city.mmdb -f data/country.mmdb -a data/asn.mmdb
+```
+
 ## Run without Docker
 
 ```shell
