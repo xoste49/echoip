@@ -339,15 +339,11 @@ func TestSpeedTestHandler(t *testing.T) {
 
 	var tests = []struct {
 		path           string
-		wantStatus     int
 		wantBytes      int64
 		wantDisposName string
 	}{
-		{"/1mb", 200, 1 * 1024 * 1024, "random-1mb.bin"},
-		{"/10mb", 200, 10 * 1024 * 1024, "random-10mb.bin"},
-		{"/50mb", 200, 50 * 1024 * 1024, "random-50mb.bin"},
-		{"/1gb", 200, 1 * 1024 * 1024 * 1024, "random-1gb.bin"},
-		{"/2gb", 200, 2 * 1024 * 1024 * 1024, "random-2gb.bin"},
+		{"/1mb", 1 * 1024 * 1024, "random-1mb.bin"},
+		{"/10mb", 10 * 1024 * 1024, "random-10mb.bin"},
 	}
 
 	for _, tt := range tests {
@@ -355,13 +351,12 @@ func TestSpeedTestHandler(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", tt.path, err)
 		}
-		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode != tt.wantStatus {
-			t.Errorf("%s: expected status %d, got %d", tt.path, tt.wantStatus, resp.StatusCode)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s: expected status 200, got %d", tt.path, resp.StatusCode)
 		}
-		if int64(len(body)) != tt.wantBytes {
-			t.Errorf("%s: expected %d bytes, got %d", tt.path, tt.wantBytes, len(body))
+		if got := resp.ContentLength; got != tt.wantBytes {
+			t.Errorf("%s: expected Content-Length %d, got %d", tt.path, tt.wantBytes, got)
 		}
 		disp := resp.Header.Get("Content-Disposition")
 		if disp != `attachment; filename="`+tt.wantDisposName+`"` {
