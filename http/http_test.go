@@ -1,12 +1,15 @@
 package http
 
 import (
-	"io/ioutil"
+	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -57,7 +60,7 @@ func httpGet(url string, acceptMediaType string, userAgent string) (string, int,
 		return "", 0, err
 	}
 	defer res.Body.Close()
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", 0, err
 	}
@@ -74,7 +77,7 @@ func httpPost(url, body string) (*http.Response, string, error) {
 		return nil, "", err
 	}
 	defer res.Body.Close()
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, "", err
 	}
@@ -82,7 +85,7 @@ func httpPost(url, body string) (*http.Response, string, error) {
 }
 
 func TestCLIHandlers(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	s := httptest.NewServer(testServer().Handler())
 
 	var tests = []struct {
@@ -119,7 +122,7 @@ func TestCLIHandlers(t *testing.T) {
 }
 
 func TestDisabledHandlers(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	server := testServer()
 	server.LookupPort = nil
 	server.LookupAddr = nil
@@ -153,7 +156,7 @@ func TestDisabledHandlers(t *testing.T) {
 }
 
 func TestJSONHandlers(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	s := httptest.NewServer(testServer().Handler())
 
 	var tests = []struct {
@@ -187,7 +190,7 @@ func TestJSONHandlers(t *testing.T) {
 }
 
 func TestCacheHandler(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	srv := testServer()
 	srv.profile = true
 	s := httptest.NewServer(srv.Handler())
@@ -202,7 +205,7 @@ func TestCacheHandler(t *testing.T) {
 }
 
 func TestCacheResizeHandler(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	srv := testServer()
 	srv.profile = true
 	s := httptest.NewServer(srv.Handler())
@@ -310,5 +313,283 @@ func TestCLIMatcher(t *testing.T) {
 		if got := cliMatcher(r); got != tt.out {
 			t.Errorf("Expected %t, got %t for %q", tt.out, got, tt.in)
 		}
+	}
+}
+
+func TestGenerate204Handler(t *testing.T) {
+	log.SetOutput(io.Discard)
+	s := httptest.NewServer(testServer().Handler())
+	resp, err := http.Get(s.URL + "/generate_204")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("Expected 204, got %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if len(body) != 0 {
+		t.Errorf("Expected empty body, got %q", body)
+	}
+}
+
+func TestSpeedTestHandler(t *testing.T) {
+	log.SetOutput(io.Discard)
+	s := httptest.NewServer(testServer().Handler())
+
+	var tests = []struct {
+		path           string
+		wantStatus     int
+		wantBytes      int64
+		wantDisposName string
+	}{
+		{"/1mb", 200, 1 * 1024 * 1024, "random-1mb.bin"},
+		{"/10mb", 200, 10 * 1024 * 1024, "random-10mb.bin"},
+		{"/50mb", 200, 50 * 1024 * 1024, "random-50mb.bin"},
+		{"/1gb", 200, 1 * 1024 * 1024 * 1024, "random-1gb.bin"},
+		{"/2gb", 200, 2 * 1024 * 1024 * 1024, "random-2gb.bin"},
+	}
+
+	for _, tt := range tests {
+		resp, err := http.Get(s.URL + tt.path)
+		if err != nil {
+			t.Fatalf("%s: %v", tt.path, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != tt.wantStatus {
+			t.Errorf("%s: expected status %d, got %d", tt.path, tt.wantStatus, resp.StatusCode)
+		}
+		if int64(len(body)) != tt.wantBytes {
+			t.Errorf("%s: expected %d bytes, got %d", tt.path, tt.wantBytes, len(body))
+		}
+		disp := resp.Header.Get("Content-Disposition")
+		if disp != `attachment; filename="`+tt.wantDisposName+`"` {
+			t.Errorf("%s: unexpected Content-Disposition: %q", tt.path, disp)
+		}
+	}
+}
+
+func TestSpeedTestHandlerInvalid(t *testing.T) {
+	log.SetOutput(io.Discard)
+	s := httptest.NewServer(testServer().Handler())
+
+	var tests = []struct {
+		path string
+	}{
+		{"/11gb"}, // exceeds 10 GB limit
+		{"/0mb"},  // zero size
+	}
+
+	for _, tt := range tests {
+		_, status, err := httpGet(s.URL+tt.path, jsonMediaType, "")
+		if err != nil {
+			t.Fatalf("%s: %v", tt.path, err)
+		}
+		if status != http.StatusBadRequest {
+			t.Errorf("%s: expected 400, got %d", tt.path, status)
+		}
+	}
+}
+
+func TestHeadHandler(t *testing.T) {
+	log.SetOutput(io.Discard)
+	s := httptest.NewServer(testServer().Handler())
+	req, err := http.NewRequest(http.MethodHead, s.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("Expected 204, got %d", resp.StatusCode)
+	}
+}
+
+func TestLoggingMiddleware(t *testing.T) {
+	log.SetOutput(io.Discard)
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	})
+	ts := httptest.NewServer(loggingMiddleware(inner))
+	defer ts.Close()
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusTeapot {
+		t.Errorf("Expected 418, got %d", resp.StatusCode)
+	}
+}
+
+func TestLoggingMiddlewareOutput(t *testing.T) {
+	var buf strings.Builder
+	log.SetOutput(&buf)
+	defer log.SetOutput(io.Discard)
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	ts := httptest.NewServer(loggingMiddleware(inner))
+	defer ts.Close()
+
+	if _, err := http.Get(ts.URL + "/test-path"); err != nil {
+		t.Fatal(err)
+	}
+
+	logged := buf.String()
+	if !strings.Contains(logged, "GET") {
+		t.Errorf("Expected method in log, got: %q", logged)
+	}
+	if !strings.Contains(logged, "/test-path") {
+		t.Errorf("Expected path in log, got: %q", logged)
+	}
+	if !strings.Contains(logged, "200") {
+		t.Errorf("Expected status code in log, got: %q", logged)
+	}
+}
+
+func TestLoggingMiddlewareDefaultStatus(t *testing.T) {
+	log.SetOutput(io.Discard)
+	// Handler that writes body without calling WriteHeader — should default to 200
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+	ts := httptest.NewServer(loggingMiddleware(inner))
+	defer ts.Close()
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestNew(t *testing.T) {
+	r, _ := geo.Open("", "", "")
+	cache := NewCache(0)
+	s := New(r, cache, false)
+	if s == nil {
+		t.Fatal("Expected non-nil server")
+	}
+}
+
+func TestInternalServerError(t *testing.T) {
+	e := internalServerError(fmt.Errorf("boom"))
+	if e.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", e.Code)
+	}
+}
+
+func TestInvalidIPQueryParam(t *testing.T) {
+	log.SetOutput(io.Discard)
+	s := httptest.NewServer(testServer().Handler())
+
+	endpoints := []string{
+		"/ip", "/country", "/country-iso", "/city", "/coordinates", "/asn", "/asn-org",
+	}
+	for _, ep := range endpoints {
+		_, status, err := httpGet(s.URL+ep+"?ip=not-an-ip", "", "")
+		if err != nil {
+			t.Fatalf("%s: %v", ep, err)
+		}
+		if status != http.StatusBadRequest {
+			t.Errorf("%s: expected 400, got %d", ep, status)
+		}
+	}
+	// JSON handler
+	_, status, err := httpGet(s.URL+"/json?ip=not-an-ip", jsonMediaType, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusBadRequest {
+		t.Errorf("/json: expected 400, got %d", status)
+	}
+}
+
+func TestCacheResizeHandlerInvalidBody(t *testing.T) {
+	log.SetOutput(io.Discard)
+	srv := testServer()
+	srv.profile = true
+	s := httptest.NewServer(srv.Handler())
+
+	// Non-numeric body
+	_, body, err := httpPost(s.URL+"/debug/cache/resize", "abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "error") {
+		t.Errorf("Expected error in response, got %q", body)
+	}
+
+	// Negative capacity (triggers Resize error)
+	_, body, err = httpPost(s.URL+"/debug/cache/resize", "-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "error") {
+		t.Errorf("Expected error for negative capacity, got %q", body)
+	}
+}
+
+func TestWrapHandlerFunc(t *testing.T) {
+	log.SetOutput(io.Discard)
+	srv := testServer()
+	srv.profile = true
+	s := httptest.NewServer(srv.Handler())
+	_, status, err := httpGet(s.URL+"/debug/pprof/cmdline", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusOK {
+		t.Errorf("Expected 200, got %d", status)
+	}
+}
+
+func TestServeHTTP500(t *testing.T) {
+	log.SetOutput(io.Discard)
+	h := appHandler(func(w http.ResponseWriter, r *http.Request) *appError {
+		return internalServerError(fmt.Errorf("server error"))
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500, got %d", rec.Code)
+	}
+}
+
+func TestIPFromRequestSplitHostPortError(t *testing.T) {
+	// "::not:valid::" has colons but SplitHostPort fails → error
+	r := &http.Request{
+		RemoteAddr: "::not:valid::",
+		Header:     http.Header{},
+		URL:        &url.URL{},
+	}
+	_, err := ipFromRequest(nil, r, false)
+	if err == nil {
+		t.Error("Expected error for invalid RemoteAddr, got nil")
+	}
+}
+
+func TestDefaultHandler(t *testing.T) {
+	log.SetOutput(io.Discard)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(`{{.IP}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	srv := testServer()
+	srv.Template = dir
+	s := httptest.NewServer(srv.Handler())
+	_, status, err := httpGet(s.URL, "", "Mozilla/5.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusOK {
+		t.Errorf("Expected 200, got %d", status)
 	}
 }

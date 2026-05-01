@@ -85,3 +85,17 @@ func TestCacheResize(t *testing.T) {
 		t.Errorf("want %d entries, got %d", want, got)
 	}
 }
+
+func TestNewCacheNegativeCapacity(t *testing.T) {
+	c := NewCache(-1)
+	if c.capacity != 0 {
+		t.Errorf("Expected capacity 0 for negative input, got %d", c.capacity)
+	}
+}
+
+func TestCacheResizeNegative(t *testing.T) {
+	c := NewCache(10)
+	if err := c.Resize(-1); err == nil {
+		t.Error("Expected error for negative capacity, got nil")
+	}
+}
